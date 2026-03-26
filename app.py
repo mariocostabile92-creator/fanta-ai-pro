@@ -1,42 +1,58 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configurazione Pagina
+# 1. Configurazione base
 st.set_page_config(page_title="FantaAI Pro", layout="wide")
 
-# Inizializzazione Session State
+# 2. Inizializzazione dati
 if 'budget' not in st.session_state:
     st.session_state.budget = 500
 if 'squadra' not in st.session_state:
     st.session_state.squadra = []
 
-# --- DATABASE INTEGRATO ---
-@st.cache_data
-def get_giocatori():
-    # Lista pulita e verificata
-    data = [
-        {"name": "Sommer", "team": "Inter", "role": "P", "price": 18},
-        {"name": "Maignan", "team": "Milan", "role": "P", "price": 17},
-        {"name": "Di Gregorio", "team": "Juve", "role": "P", "price": 16},
-        {"name": "Dimarco", "team": "Inter", "role": "D", "price": 22},
-        {"name": "Theo Hernandez", "team": "Milan", "role": "D", "price": 20},
-        {"name": "Buongiorno", "team": "Napoli", "role": "D", "price": 16},
-        {"name": "Pulisic", "team": "Milan", "role": "C", "price": 28},
-        {"name": "Calhanoglu", "team": "Inter", "role": "C", "price": 26},
-        {"name": "Koopmeiners", "team": "Juve", "role": "C", "price": 25},
-        {"name": "Zaccagni", "team": "Lazio", "role": "C", "price": 24},
-        {"name": "Lautaro Martinez", "team": "Inter", "role": "A", "price": 45},
-        {"name": "Vlahovic", "team": "Juve", "role": "A", "price": 42},
-        {"name": "Lukaku", "team": "Napoli", "role": "A", "price": 40},
-        {"name": "Thuram", "team": "Inter", "role": "A", "price": 38},
-        {"name": "Dybala", "team": "Roma", "role": "A", "price": 35},
-        {"name": "Kvaratskhelia", "team": "Napoli", "role": "A", "price": 36},
-        {"name": "Leao", "team": "Milan", "role": "A", "price": 34},
-        {"name": "Retegui", "team": "Atalanta", "role": "A", "price": 32}
-    ]
-    return pd.DataFrame(data)
+# 3. Database Giocatori
+data = [
+    {"n": "Sommer", "t": "Inter", "r": "P", "p": 18},
+    {"n": "Maignan", "t": "Milan", "r": "P", "p": 17},
+    {"n": "Dimarco", "t": "Inter", "r": "D", "p": 22},
+    {"n": "Theo", "t": "Milan", "r": "D", "p": 20},
+    {"n": "Pulisic", "t": "Milan", "r": "C", "p": 28},
+    {"n": "Barella", "t": "Inter", "r": "C", "p": 22},
+    {"n": "Lautaro", "t": "Inter", "r": "A", "p": 45},
+    {"n": "Vlahovic", "t": "Juve", "r": "A", "p": 42},
+    {"n": "Lukaku", "t": "Napoli", "r": "A", "p": 40}
+]
+df = pd.DataFrame(data)
 
-df = get_giocatori()
+# 4. Sidebar
+st.sidebar.title("💰 Fanta Budget")
+st.sidebar.metric("Residuo", f"{st.session_state.budget} cr")
+scelta = st.sidebar.radio("Menu", ["Mercato", "Rosa", "Classifica"])
 
-# --- SIDEBAR ---
-with st.
+if st.sidebar.button("Reset"):
+    st.session_state.budget = 500
+    st.session_state.squadra = []
+    st.rerun()
+
+# 5. Sezioni
+if scelta == "Mercato":
+    st.title("🎯 Acquista Giocatori")
+    for _, row in df.iterrows():
+        col1, col2, col3 = st.columns([2,1,1])
+        col1.write(f"**{row['n']}** ({row['t']}) - {row['r']}")
+        prezzo = col2.number_input("Prezzo", min_value=1, key=f"p_{row['n']}")
+        if col3.button("PRENDI", key=f"b_{row['n']}"):
+            st.session_state.squadra.append({"G": row['n'], "P": prezzo})
+            st.session_state.budget -= prezzo
+            st.rerun()
+
+elif scelta == "Rosa":
+    st.title("📋 La tua Rosa")
+    if st.session_state.squadra:
+        st.table(pd.DataFrame(st.session_state.squadra))
+    else:
+        st.write("Rosa vuota")
+
+else:
+    st.title("📊 Classifica")
+    st.write("Inter 76, Juve 62, Milan 59")
