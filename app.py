@@ -4,74 +4,95 @@ import pandas as pd
 # 1. Configurazione della Pagina
 st.set_page_config(page_title="FantaAI Pro", page_icon="⚽", layout="centered")
 
-# Stile CSS per le card dei giocatori
+# Stile CSS per rendere l'app professionale
 st.markdown("""
     <style>
+    .main { background-color: #f5f7f9; }
     .player-card {
         background-color: #ffffff;
         padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #6f42c1;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        border-left: 6px solid #6f42c1;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin-bottom: 15px;
-        color: #2c3e50;
     }
     .price-badge {
         background-color: #2ecc71;
         color: white;
-        padding: 4px 10px;
+        padding: 4px 12px;
         border-radius: 20px;
         font-weight: bold;
         float: right;
     }
+    .player-name { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
+    .player-meta { color: #7f8c8d; font-size: 0.9em; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Caricamento Dati
+# 2. Funzione caricamento dati robusta
 @st.cache_data
-def get_data():
+def load_fanta_data():
     url = "https://raw.githubusercontent.com/OpenFanta/fanta-data/main/data/players.csv"
     try:
         data = pd.read_csv(url)
+        # Pulizia nomi colonne (mette tutto in minuscolo per evitare errori)
+        data.columns = [c.lower() for c in data.columns]
         return data[['name', 'team', 'role', 'price']]
     except:
-        return pd.DataFrame([{"name": "Errore", "team": "Dati", "role": "!", "price": 0}])
+        # Dati di emergenza se il link non risponde
+        return pd.DataFrame([
+            {"name": "Lautaro Martinez", "team": "Inter", "role": "A", "price": 40},
+            {"name": "Dusan Vlahovic", "team": "Juve", "role": "A", "price": 35},
+            {"name": "Khvicha Kvaratskhelia", "team": "Napoli", "role": "A", "price": 32},
+            {"name": "Paulo Dybala", "team": "Roma", "role": "A", "price": 30}
+        ])
 
-df = get_data()
+df = load_fanta_data()
 
-# 3. Sidebar (Filtri)
-st.sidebar.title("🎮 FantaAI Panel")
-ruolo_filtro = st.sidebar.multiselect("Ruolo", ["P", "D", "C", "A"], default=["A", "C"])
-budget_filtro = st.sidebar.slider("Budget Max", 1, 100, 50)
-search = st.sidebar.text_input("Cerca nome...")
+# 3. Sidebar (Controlli)
+st.sidebar.title("🎮 FantaAI Control")
+st.sidebar.markdown("Usa i filtri per trovare i colpi migliori.")
 
-# 4. Logica di Filtro
-df_display = df[df['price'] <= budget_filtro]
-if ruolo_filtro:
-    df_display = df_display[df_display['role'].isin(ruolo_filtro)]
-if search:
-    df_display = df_display[df_display['name'].str.contains(search, case=False)]
+# Filtri
+ruoli_disponibili = sorted(df['role'].unique())
+ruolo_sel = st.sidebar.multiselect("Seleziona Ruolo", ruoli_disponibili, default=ruoli_disponibili)
+budget_max = st.sidebar.slider("Budget Massimo (cr)", 1, 100, 50)
+search_query = st.sidebar.text_input("Cerca calciatore...")
 
-# 5. Main Page
-st.title("⚽ FantaAI: Guru dell'Asta")
-st.write(f"Giocatori trovati: {len(df_display)}")
+# 4. Logica di filtraggio
+df_filtrato = df[df['price'] <= budget_max]
+if ruolo_sel:
+    df_filtrato = df_filtrato[df_filtrato['role'].isin(ruolo_sel)]
+if search_query:
+    df_filtrato = df_filtrato[df_filtrato['name'].str.contains(search_query, case=False)]
 
-for _, row in df_display.head(20).iterrows():
-    with st.container():
-        # Creazione Card
-        st.markdown(f"""
-            <div class="player-card">
-                <span class="price-badge">{row['price']} cr</span>
-                <div style="font-size: 1.2em; font-weight: bold;">{row['name']}</div>
-                <div style="color: #7f8c8d;">{row['team']} - {row['role']}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # IA Advisor
-        if row['price'] > 30:
-            st.info(f"🤖 **Analisi:** {row['name']} è un top di reparto. Compralo se hai almeno il 20% del budget totale.")
-        elif row['price'] > 15:
-            st.success(f"🤖 **Analisi:** Ottima pedina. Garantisce titolarità e buoni voti.")
-        else:
-            st.warning(f"🤖 **Analisi:** Scommessa pura. Prendilo a 1 credito come ultimo slot.")
-        st.write("---")
+# 5. Pagina Principale
+st.title("⚽ FantaAI: Il Guru dell'Asta")
+st.write(f"Visualizzando **{len(df_filtrato)}** calciatori")
+
+if len(df_filtrato) == 0:
+    st.warning("Nessun calciatore trovato con questi filtri. Prova ad alzare il budget!")
+else:
+    for _, row in df_filtrato.head(30).iterrows():
+        with st.container():
+            # Card HTML
+            st.markdown(f"""
+                <div class="player-card">
+                    <span class="price-badge">{row['price']} cr</span>
+                    <div class="player-name">{row['name']}</div>
+                    <div class="player-meta">{row['team']} - Ruolo: {row['role']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # IA Advisor logic
+            if row['price'] >= 30:
+                st.info(f"🤖 **IA ADVISOR:** Top di reparto. Da prendere se vuoi puntare ai primi posti.")
+            elif row['price'] >= 15:
+                st.success(f"🤖 **IA ADVISOR:** Ottimo titolare. Rapporto qualità/prezzo equilibrato.")
+            else:
+                st.warning(f"🤖 **IA ADVISOR:** Scommessa low-cost. Ideale per completare la rosa.")
+            st.write("") # Spaziatore
+
+# Footer
+st.sidebar.markdown("---")
+st.sidebar.write("💰 **Versione PRO attiva**")
