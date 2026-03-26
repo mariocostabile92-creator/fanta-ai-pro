@@ -1,92 +1,86 @@
 import streamlit as st
 import pandas as pd
 
+# 1. Configurazione Pagina
 st.set_page_config(page_title="FantaAI Pro", layout="wide")
 
-# Inizializziamo il budget e la squadra
+# Inizializzazione dati in memoria
 if 'budget' not in st.session_state:
     st.session_state.budget = 500
 if 'squadra' not in st.session_state:
     st.session_state.squadra = []
 
-# --- CARICAMENTO DATI (CON PROTEZIONE ERRORI) ---
+# --- FUNZIONE CARICAMENTO DATI ---
 @st.cache_data
 def carica_dati():
-    url = "https://raw.githubusercontent.com/OpenFanta/fanta-data/main/data/players.csv"
-    try:
-        # Prova a leggere online
-        df = pd.read_csv(url)
-        df.columns = [c.lower() for c in df.columns]
-        return df
-    except Exception as e:
-        # Se il link fallisce (HTTPError), usa questi dati di test
-        st.warning("Database online non raggiungibile. Caricamento dati di emergenza...")
-        data_emergenza = {
-            'name': ['Lautaro Martinez', 'Vlahovic', 'Kvaratskhelia', 'Dybala', 'Barella', 'Theo Hernandez', 'Di Lorenzo', 'Sommer'],
-            'team': ['Inter', 'Juve', 'Napoli', 'Roma', 'Inter', 'Milan', 'Napoli', 'Inter'],
-            'role': ['A', 'A', 'A', 'A', 'C', 'D', 'D', 'P'],
-            'price': [40, 35, 32, 30, 22, 18, 15, 15]
-        }
-        return pd.DataFrame(data_emergenza)
+    # Usiamo dati locali per ora, così non avremo mai più l'errore 404
+    data_fissi = {
+        'name': ['Lautaro Martinez', 'Vlahovic', 'Kvaratskhelia', 'Dybala', 'Barella', 'Pulisic', 'Koopmeiners', 'Theo Hernandez', 'Dimarco', 'Sommer', 'Maignan'],
+        'team': ['Inter', 'Juve', 'Napoli', 'Roma', 'Inter', 'Milan', 'Atalanta', 'Milan', 'Inter', 'Inter', 'Milan'],
+        'role': ['A', 'A', 'A', 'A', 'C', 'C', 'C', 'D', 'D', 'P', 'P'],
+        'price': [40, 35, 32, 30, 22, 25, 24, 18, 20, 15, 15]
+    }
+    return pd.DataFrame(data_fissi)
 
 df = carica_dati()
 
-# --- SIDEBAR ---
-st.sidebar.title("💰 Gestione Asta")
-st.sidebar.metric("Crediti Rimanenti", f"{st.session_state.budget} cr")
+# --- BARRA LATERALE (SIDEBAR) ---
+with st.sidebar:
+    st.title("💰 ASTA LIVE")
+    st.metric("Budget Residuo", f"{st.session_state.budget} cr")
+    st.write("---")
+    # Menu di navigazione
+    scelta = st.radio("VAI A:", ["🎯 Mercato", "📋 La Mia Rosa", "📊 Classifica"])
+    
+    if st.button("🗑️ Reset Tutto"):
+        st.session_state.budget = 500
+        st.session_state.squadra = []
+        st.rerun()
 
-menu = st.sidebar.radio("Scegli sezione:", ["Cerca Giocatori", "La Mia Rosa", "Classifica Serie A"])
-
-if st.sidebar.button("Reset Totale"):
-    st.session_state.budget = 500
-    st.session_state.squadra = []
-    st.rerun()
-
-# --- SEZIONE: CERCA GIOCATORI ---
-if menu == "Cerca Giocatori":
+# --- SEZIONE 1: MERCATO ---
+if scelta == "🎯 Mercato":
     st.title("🎯 Scout & Acquisti")
     
-    # Filtri veloci
-    col_a, col_b = st.columns(2)
-    with col_a:
-        ruolo_filtro = st.multiselect("Filtra Ruolo", ["P", "D", "C", "A"], default=["A", "C"])
-    with col_b:
-        cerca = st.text_input("Cerca nome (es: Lautaro)")
-
-    # Applichiamo i filtri
-    mask = df['role'].isin(ruolo_filtro)
-    if cerca:
-        mask = mask & df['name'].str.contains(cerca, case=False)
+    cerca = st.text_input("Cerca giocatore per nome...")
+    ruoli = st.multiselect("Filtra Ruolo", ["P", "D", "C", "A"], default=["A", "C", "D", "P"])
     
-    risultati = df[mask]
+    filtro = df[df['role'].isin(ruoli)]
+    if cerca:
+        filtro = filtro[filtro['name'].str.contains(cerca, case=False)]
 
-    for _, row in risultati.iterrows():
+    for _, row in filtro.iterrows():
         with st.container():
-            c1, c2, c3 = st.columns([2, 1, 1])
-            with c1:
-                st.markdown(f"### {row['name']} ({row['team']})")
-                st.write(f"Ruolo: **{row['role']}** | Quotazione: {row['price']} cr")
-            with c2:
-                prezzo_pagato = st.number_input(f"Prezzo asta", min_value=1, key=f"p_{row['name']}")
-            with c3:
-                if st.button(f"PRENDI", key=f"btn_{row['name']}"):
-                    st.session_state.squadra.append({"Giocatore": row['name'], "Squadra": row['team'], "Spesa": prezzo_pagato})
-                    st.session_state.budget -= prezzo_pagato
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                st.subheader(row['name'])
+                st.write(f"{row['team']} - {row['role']}")
+            with col2:
+                prezzo = st.number_input("Prezzo pagato", min_value=1, key=f"p_{row['name']}")
+            with col3:
+                if st.button("PRENDI", key=f"btn_{row['name']}"):
+                    st.session_state.squadra.append({"Giocatore": row['name'], "Ruolo": row['role'], "Costo": prezzo})
+                    st.session_state.budget -= prezzo
                     st.success(f"Preso {row['name']}!")
                     st.rerun()
             st.write("---")
 
-# --- SEZIONE: LA MIA ROSA ---
-elif menu == "La Mia Rosa":
+# --- SEZIONE 2: LA MIA ROSA ---
+elif scelta == "📋 La Mia Rosa":
     st.title("📋 I tuoi acquisti")
-    if st.session_state.squadra:
-        st.table(pd.DataFrame(st.session_state.squadra))
-        spesa_totale = sum(item['Spesa'] for item in st.session_state.squadra)
-        st.metric("Totale Speso", f"{spesa_totale} cr")
+    if not st.session_state.squadra:
+        st.info("Non hai ancora comprato nessuno. Torna nel Mercato!")
     else:
-        st.info("La tua rosa è ancora vuota. Vai in 'Cerca Giocatori' per iniziare l'asta!")
+        df_rosa = pd.DataFrame(st.session_state.squadra)
+        st.dataframe(df_rosa, use_container_width=True)
+        totale_speso = df_rosa['Costo'].sum()
+        st.metric("Totale Speso", f"{totale_speso} cr")
 
-# --- SEZIONE: CLASSIFICA ---
-else:
+# --- SEZIONE 3: CLASSIFICA ---
+elif scelta == "📊 Classifica":
     st.title("📊 Classifica Serie A")
-    st.info("Sezione in fase di collegamento con i risultati live.")
+    classifica_finta = pd.DataFrame({
+        "Pos": [1, 2, 3, 4, 5],
+        "Squadra": ["Inter", "Juve", "Milan", "Napoli", "Atalanta"],
+        "Punti": [76, 62, 59, 55, 51]
+    })
+    st.table(classifica_finta)
