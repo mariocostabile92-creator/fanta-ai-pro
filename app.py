@@ -31,44 +31,4 @@ def get_giocatori():
         {"name": "Dybala", "team": "Roma", "role": "A", "price": 35},
         {"name": "Kvaratskhelia", "team": "Napoli", "role": "A", "price": 36},
         {"name": "Leao", "team": "Milan", "role": "A", "price": 34},
-        {"name": "Retegui", "team": "Atalanta", "role": "A", "price": 32}
-    ]
-    return pd.DataFrame(data)
-
-df = get_giocatori()
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.header("💰 ASTA")
-    st.metric("Budget Residuo", f"{st.session_state.budget} cr")
-    st.write("---")
-    menu = st.radio("Scegli Sezione:", ["🎯 Mercato", "📋 La Mia Rosa", "📊 Classifica"])
-    
-    if st.button("🗑️ Reset Asta"):
-        st.session_state.budget = 500
-        st.session_state.squadra = []
-        st.rerun()
-
-# --- SEZIONE 1: MERCATO ---
-if menu == "🎯 Mercato":
-    st.title("🎯 Mercato Live")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        ruolo_filtro = st.multiselect("Ruolo", ["P", "D", "C", "A"], default=["A", "C"])
-    with c2:
-        cerca = st.text_input("Cerca nome...")
-
-    mostra = df[df['role'].isin(ruolo_filtro)]
-    if cerca:
-        mostra = mostra[mostra['name'].str.contains(cerca, case=False)]
-
-    for _, row in mostra.iterrows():
-        with st.container():
-            col1, col2, col3 = st.columns([2, 1, 1])
-            with col1:
-                st.subheader(row['name'])
-                st.caption(f"{row['team']} | Quotazione: {row['price']}")
-            with col2:
-                p_asta = st.number_input(f"Prezzo", min_value=1, key=f"in_{row['name']}")
-            with
+        {"name": "Retegui",
