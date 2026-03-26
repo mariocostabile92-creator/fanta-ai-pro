@@ -2,97 +2,104 @@ import streamlit as st
 import pandas as pd
 
 # 1. Configurazione della Pagina
-st.set_page_config(page_title="FantaAI Pro", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="FantaAI Pro", page_icon="⚽", layout="wide")
 
-# Stile CSS per rendere l'app professionale
+# Stile CSS per Card e Classifica
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
     .player-card {
         background-color: #ffffff;
-        padding: 15px;
-        border-radius: 12px;
-        border-left: 6px solid #6f42c1;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
+        padding: 12px;
+        border-radius: 10px;
+        border-left: 5px solid #6f42c1;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+        color: #333;
     }
     .price-badge {
         background-color: #2ecc71;
         color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
+        padding: 2px 10px;
+        border-radius: 15px;
         font-weight: bold;
         float: right;
     }
-    .player-name { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
-    .player-meta { color: #7f8c8d; font-size: 0.9em; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Funzione caricamento dati robusta
+# 2. Caricamento Dati (Cache per velocità)
 @st.cache_data
-def load_fanta_data():
-    url = "https://raw.githubusercontent.com/OpenFanta/fanta-data/main/data/players.csv"
+def load_data():
+    # Giocatori
+    url_players = "https://raw.githubusercontent.com/OpenFanta/fanta-data/main/data/players.csv"
     try:
-        data = pd.read_csv(url)
-        # Pulizia nomi colonne (mette tutto in minuscolo per evitare errori)
-        data.columns = [c.lower() for c in data.columns]
-        return data[['name', 'team', 'role', 'price']]
+        df = pd.read_csv(url_players)
+        df.columns = [c.lower() for c in df.columns]
     except:
-        # Dati di emergenza se il link non risponde
-        return pd.DataFrame([
-            {"name": "Lautaro Martinez", "team": "Inter", "role": "A", "price": 40},
-            {"name": "Dusan Vlahovic", "team": "Juve", "role": "A", "price": 35},
-            {"name": "Khvicha Kvaratskhelia", "team": "Napoli", "role": "A", "price": 32},
-            {"name": "Paulo Dybala", "team": "Roma", "role": "A", "price": 30}
-        ])
+        df = pd.DataFrame([{"name": "Esempio", "team": "Team", "role": "A", "price": 10}])
+    
+    # Dati Serie A (Simulati/Placeholder - In una versione reale useresti un'API o CSV aggiornati)
+    standings = pd.DataFrame({
+        "Squadra": ["Inter", "Juventus", "Milan", "Napoli", "Atalanta", "Lazio", "Roma", "Fiorentina"],
+        "Punti": [75, 62, 59, 55, 50, 49, 48, 45],
+        "G": [29, 29, 29, 29, 28, 29, 29, 29]
+    }).sort_values(by="Punti", ascending=False)
+    
+    return df, standings
 
-df = load_fanta_data()
+df_players, df_standings = load_data()
 
-# 3. Sidebar (Controlli)
-st.sidebar.title("🎮 FantaAI Control")
-st.sidebar.markdown("Usa i filtri per trovare i colpi migliori.")
+# 3. Sidebar
+st.sidebar.title("⚽ FantaAI Menu")
+menu = st.sidebar.radio("Vai a:", ["🎯 Guru dell'Asta", "📊 Classifica & Calendario"])
 
-# Filtri
-ruoli_disponibili = sorted(df['role'].unique())
-ruolo_sel = st.sidebar.multiselect("Seleziona Ruolo", ruoli_disponibili, default=ruoli_disponibili)
-budget_max = st.sidebar.slider("Budget Massimo (cr)", 1, 100, 50)
-search_query = st.sidebar.text_input("Cerca calciatore...")
+# --- SEZIONE 1: GURU DELL'ASTA ---
+if menu == "🎯 Guru dell'Asta":
+    st.title("🎯 Consigliere IA per l'Asta")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Filtri")
+        ruoli = st.multiselect("Ruolo", ["P", "D", "C", "A"], default=["A", "C"])
+        budget = st.slider("Budget Max (cr)", 1, 100, 100)
+        cerca = st.text_input("Cerca nome...")
 
-# 4. Logica di filtraggio
-df_filtrato = df[df['price'] <= budget_max]
-if ruolo_sel:
-    df_filtrato = df_filtrato[df_filtrato['role'].isin(ruolo_sel)]
-if search_query:
-    df_filtrato = df_filtrato[df_filtrato['name'].str.contains(search_query, case=False)]
+    with col2:
+        # Filtro
+        final_df = df_players[df_players['price'] <= budget]
+        if ruoli:
+            final_df = final_df[final_df['role'].isin(ruoli)]
+        if cerca:
+            final_df = final_df[final_df['name'].str.contains(cerca, case=False)]
+        
+        st.write(f"Trovati {len(final_df)} calciatori")
+        
+        # Lista Giocatori (Senza limite .head() per vederli tutti)
+        for _, row in final_df.iterrows():
+            with st.container():
+                st.markdown(f"""
+                    <div class="player-card">
+                        <span class="price-badge">{row['price']} cr</span>
+                        <b>{row['name']}</b> ({row['team']}) - {row['role']}
+                    </div>
+                """, unsafe_allow_html=True)
 
-# 5. Pagina Principale
-st.title("⚽ FantaAI: Il Guru dell'Asta")
-st.write(f"Visualizzando **{len(df_filtrato)}** calciatori")
-
-if len(df_filtrato) == 0:
-    st.warning("Nessun calciatore trovato con questi filtri. Prova ad alzare il budget!")
+# --- SEZIONE 2: CLASSIFICA E CALENDARIO ---
 else:
-    for _, row in df_filtrato.head(30).iterrows():
-        with st.container():
-            # Card HTML
-            st.markdown(f"""
-                <div class="player-card">
-                    <span class="price-badge">{row['price']} cr</span>
-                    <div class="player-name">{row['name']}</div>
-                    <div class="player-meta">{row['team']} - Ruolo: {row['role']}</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # IA Advisor logic
-            if row['price'] >= 30:
-                st.info(f"🤖 **IA ADVISOR:** Top di reparto. Da prendere se vuoi puntare ai primi posti.")
-            elif row['price'] >= 15:
-                st.success(f"🤖 **IA ADVISOR:** Ottimo titolare. Rapporto qualità/prezzo equilibrato.")
-            else:
-                st.warning(f"🤖 **IA ADVISOR:** Scommessa low-cost. Ideale per completare la rosa.")
-            st.write("") # Spaziatore
-
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.write("💰 **Versione PRO attiva**")
+    st.title("📊 Situazione Serie A")
+    
+    tab1, tab2 = st.tabs(["🏆 Classifica", "📅 Calendario & Risultati"])
+    
+    with tab1:
+        st.table(df_standings)
+    
+    with tab2:
+        st.subheader("Prossima Giornata (Esempio)")
+        st.info("Qui puoi inserire i risultati dell'ultimo turno o il calendario aggiornato.")
+        col_a, col_b = st.columns(2)
+        col_a.write("🏠 **Inter vs Empoli**")
+        col_b.write("Lunedì 20:45")
+        st.write("---")
+        col_a.write("🏠 **Lazio vs Juventus**")
+        col_b.write("Sabato 18:00")
