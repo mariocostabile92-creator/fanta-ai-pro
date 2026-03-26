@@ -13,6 +13,7 @@ if 'squadra' not in st.session_state:
 # --- DATABASE INTEGRATO ---
 @st.cache_data
 def get_giocatori():
+    # Lista pulita e verificata
     data = [
         {"name": "Sommer", "team": "Inter", "role": "P", "price": 18},
         {"name": "Maignan", "team": "Milan", "role": "P", "price": 17},
@@ -31,4 +32,11 @@ def get_giocatori():
         {"name": "Dybala", "team": "Roma", "role": "A", "price": 35},
         {"name": "Kvaratskhelia", "team": "Napoli", "role": "A", "price": 36},
         {"name": "Leao", "team": "Milan", "role": "A", "price": 34},
-        {"name": "Retegui",
+        {"name": "Retegui", "team": "Atalanta", "role": "A", "price": 32}
+    ]
+    return pd.DataFrame(data)
+
+df = get_giocatori()
+
+# --- SIDEBAR ---
+with st.
